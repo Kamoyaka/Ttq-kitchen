@@ -2235,6 +2235,47 @@
     document.querySelectorAll('.overlay-content').forEach(content => {
         content.addEventListener('scroll', updateScrollIndicator);
     });
+        // Simple history management
+let currentOverlay = null;
+
+// Track overlay opens
+const originalOpenOverlay = window.openOverlay;
+window.openOverlay = function(id) {
+    if (currentOverlay) {
+        history.pushState({ overlay: currentOverlay }, '');
+    }
+    currentOverlay = id;
+    originalOpenOverlay(id);
+};
+
+// Track overlay closes
+const originalCloseOverlay = window.closeOverlay;
+window.closeOverlay = function(id) {
+    currentOverlay = null;
+    originalCloseOverlay(id);
+};
+
+// Handle browser back button
+window.addEventListener('popstate', function(event) {
+    if (event.state && event.state.overlay) {
+        // Close current overlay if open
+        if (currentOverlay) {
+            originalCloseOverlay(currentOverlay);
+        }
+        // Open the overlay from history
+        currentOverlay = event.state.overlay;
+        originalOpenOverlay(event.state.overlay);
+    } else {
+        // Close all overlays and return to main page
+        if (currentOverlay) {
+            originalCloseOverlay(currentOverlay);
+            currentOverlay = null;
+        }
+    }
+});
+
+// Initialize on page load
+history.replaceState({ page: 'main' }, '');
     </script>
 </body>
 </html>
