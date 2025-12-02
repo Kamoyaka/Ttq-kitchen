@@ -2235,47 +2235,160 @@
     document.querySelectorAll('.overlay-content').forEach(content => {
         content.addEventListener('scroll', updateScrollIndicator);
     });
-        // Simple history management
-let currentOverlay = null;
+// History management for overlay navigation
+let overlayHistory = [];
+let isPopState = false;
 
-// Track overlay opens
-const originalOpenOverlay = window.openOverlay;
-window.openOverlay = function(id) {
-    if (currentOverlay) {
-        history.pushState({ overlay: currentOverlay }, '');
+// Modified openOverlay function to track history
+function openOverlay(id) {
+    // Don't push state if opening the same overlay
+    const currentState = overlayHistory[overlayHistory.length - 1];
+    if (currentState === id) return;
+    
+    // Push to history
+    overlayHistory.push(id);
+    
+    // Update URL without page reload
+    history.pushState({ overlay: id }, '', `#${id}`);
+    
+    // Show overlay
+    document.getElementById(`${id}Overlay`).classList.add('active');
+    document.body.style.overflow = 'hidden';
+    
+    // Generate content based on which overlay is opened
+    if (id === 'productstore') {
+        generateProductStore();
+    } else if (id === 'features') {
+        generateSignatureGallery();
     }
-    currentOverlay = id;
-    originalOpenOverlay(id);
-};
+    
+    // Update browser title
+    document.title = `${getOverlayTitle(id)} | TTQ.PRO KITCHEN`;
+}
 
-// Track overlay closes
-const originalCloseOverlay = window.closeOverlay;
-window.closeOverlay = function(id) {
-    currentOverlay = null;
-    originalCloseOverlay(id);
-};
+// Modified closeOverlay function
+function closeOverlay(id) {
+    // Remove from history
+    const index = overlayHistory.indexOf(id);
+    if (index > -1) {
+        overlayHistory.splice(index, 1);
+    }
+    
+    // Go back in history if not triggered by popstate
+    if (!isPopState) {
+        history.back();
+    }
+    
+    // Hide overlay
+    document.getElementById(`${id}Overlay`).classList.remove('active');
+    
+    // Restore default scrolling if no overlays are open
+    if (document.querySelectorAll('.overlay.active').length === 0) {
+        document.body.style.overflow = '';
+        document.title = 'TTQ.PRO KITCHEN | Authentic Cuisine Since 2017';
+    }
+    
+    isPopState = false;
+}
 
-// Handle browser back button
+// Close all overlays (for main page)
+function closeAllOverlays() {
+    document.querySelectorAll('.overlay.active').forEach(overlay => {
+        const id = overlay.id.replace('Overlay', '');
+        overlay.classList.remove('active');
+    });
+    document.body.style.overflow = '';
+    document.title = 'TTQ.PRO KITCHEN | Authentic Cuisine Since 2017';
+    overlayHistory = [];
+}
+
+// Get overlay title for browser tab
+function getOverlayTitle(id) {
+    const titles = {
+        'about': 'About TTQ',
+        'features': 'TTQ Catering Services',
+        'productstore': 'Menu & Products',
+        'contact': 'Visit Our Kitchen',
+        'privacy': 'Privacy Policy'
+    };
+    return titles[id] || 'TTQ.PRO KITCHEN';
+}
+
+// Handle browser back/forward buttons
 window.addEventListener('popstate', function(event) {
-    if (event.state && event.state.overlay) {
-        // Close current overlay if open
-        if (currentOverlay) {
-            originalCloseOverlay(currentOverlay);
+    isPopState = true;
+    
+    // Get overlay ID from URL hash
+    const hash = window.location.hash.substring(1);
+    const validOverlays = ['about', 'features', 'productstore', 'contact', 'privacy'];
+    
+    if (hash && validOverlays.includes(hash)) {
+        // Show the overlay from URL hash
+        closeAllOverlays();
+        openOverlay(hash);
+    } else if (overlayHistory.length > 0) {
+        // Go back to previous overlay in history
+        const prevOverlay = overlayHistory.pop();
+        if (prevOverlay) {
+            closeAllOverlays();
+            openOverlay(prevOverlay);
         }
-        // Open the overlay from history
-        currentOverlay = event.state.overlay;
-        originalOpenOverlay(event.state.overlay);
     } else {
-        // Close all overlays and return to main page
-        if (currentOverlay) {
-            originalCloseOverlay(currentOverlay);
-            currentOverlay = null;
-        }
+        // Return to main page
+        closeAllOverlays();
     }
 });
 
-// Initialize on page load
-history.replaceState({ page: 'main' }, '');
+// Initialize based on URL hash on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const hash = window.location.hash.substring(1);
+    const validOverlays = ['about', 'features', 'productstore', 'contact', 'privacy'];
+    
+    if (hash && validOverlays.includes(hash)) {
+        // Open overlay based on URL hash
+        setTimeout(() => openOverlay(hash), 100);
+    }
+    
+    // Set initial state
+    history.replaceState({ page: 'main' }, '', window.location.pathname);
+    
+    // Update scroll indicators
+    updateScrollIndicator();
+});
+
+// Update your existing close buttons to use the new function
+document.querySelectorAll('.close-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const overlayId = this.closest('.overlay').id.replace('Overlay', '');
+        closeOverlay(overlayId);
+    });
+});
+
+// Update your existing nav links to use the new function
+document.querySelectorAll('nav a[onclick^="openOverlay"]').forEach(link => {
+    const oldOnClick = link.getAttribute('onclick');
+    const match = oldOnClick.match(/openOverlay\('(\w+)'\)/);
+    if (match) {
+        link.removeAttribute('onclick');
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            openOverlay(match[1]);
+        });
+    }
+});
+
+// Update footer links similarly
+document.querySelectorAll('.footer-section a[onclick^="openOverlay"]').forEach(link => {
+    const oldOnClick = link.getAttribute('onclick');
+    const match = oldOnClick.match(/openOverlay\('(\w+)'\)/);
+    if (match) {
+        link.removeAttribute('onclick');
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            openOverlay(match[1]);
+        });
+    }
+});
     </script>
 </body>
 </html>
